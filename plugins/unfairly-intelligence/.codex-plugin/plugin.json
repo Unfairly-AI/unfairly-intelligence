@@ -1,0 +1,22 @@
+{
+  "name": "unfairly-intelligence",
+  "version": "0.8.2",
+  "description": "See what works with AI on your team. Content-free session metadata, joined to shipped work, with shared learnings everyone can reuse.",
+  "author": {
+    "name": "Unfairly"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Unfairly Intelligence",
+    "shortDescription": "See what works. Help your company learn.",
+    "longDescription": "Unfairly Intelligence captures a narrow, content-free set of workflow and approved output facts across supported AI clients, connects aggregate investment to evidence and outcomes, and returns approved methods through a company marketplace.",
+    "developerName": "Unfairly",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": "Show me the most relevant approved company playbooks for this work."
+  },
+  "mcpServers": "./.mcp.json",
+  "repository": "https://github.com/Unfairly-AI/unfairly-intelligence"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "unfairly-intelligence",
+  "version": "0.8.2",
+  "description": "See what works with AI on your team. Content-free session metadata, joined to shipped work, with shared learnings everyone can reuse.",
+  "author": {
+    "name": "Unfairly"
+  },
+  "skills": "./skills/",
+  "repository": "https://github.com/Unfairly-AI/unfairly-intelligence"
+}

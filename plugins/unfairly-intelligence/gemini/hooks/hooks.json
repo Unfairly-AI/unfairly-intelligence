@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "ai-pace-session-start",
+            "type": "command",
+            "command": "unfairly pace capture --source gemini_cli --event SessionStart"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "ai-pace-after-tool",
+            "type": "command",
+            "command": "unfairly pace capture --source gemini_cli --event AfterTool"
+          }
+        ]
+      }
+    ],
+    "AfterModel": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "ai-pace-after-model",
+            "type": "command",
+            "command": "unfairly pace capture --source gemini_cli --event AfterModel"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "ai-pace-session-end",
+            "type": "command",
+            "command": "unfairly pace capture --source gemini_cli --event SessionEnd"
+          }
+        ]
+      }
+    ]
+  }
+}

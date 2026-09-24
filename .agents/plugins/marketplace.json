@@ -1,0 +1,20 @@
+{
+  "name": "unfairly",
+  "interface": {
+    "displayName": "Unfairly"
+  },
+  "plugins": [
+    {
+      "name": "unfairly-intelligence",
+      "source": {
+        "source": "local",
+        "path": "./plugins/unfairly-intelligence"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

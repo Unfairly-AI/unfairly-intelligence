@@ -1,0 +1,21 @@
+{
+  "name": "unfairly-intelligence",
+  "version": "0.8.2",
+  "description": "See what works with AI on your team. Content-free session metadata, joined to shipped work, with shared learnings everyone can reuse.",
+  "author": {
+    "name": "Unfairly",
+    "email": "bob@hq.unfairly.ai"
+  },
+  "homepage": "https://intelligence.unfairly.ai",
+  "repository": "https://github.com/Unfairly-AI/unfairly-intelligence",
+  "license": "MIT",
+  "keywords": [
+    "analytics",
+    "developer-tools",
+    "governance",
+    "playbooks"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/cursor-hooks.json",
+  "mcpServers": "./mcp.json"
+}

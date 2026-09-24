@@ -1,0 +1,39 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "unfairly-intelligence",
+  "version": "0.8.2",
+  "description": "See what works with AI on your team. Content-free session metadata, joined to shipped work, with shared learnings everyone can reuse.",
+  "author": {
+    "name": "Unfairly",
+    "email": "bob@hq.unfairly.ai",
+    "url": "https://unfairly.ai"
+  },
+  "homepage": "https://intelligence.unfairly.ai",
+  "repository": "https://github.com/Unfairly-AI/unfairly-intelligence",
+  "license": "MIT",
+  "keywords": [
+    "analytics",
+    "developer-tools",
+    "governance",
+    "playbooks"
+  ],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Unfairly Intelligence",
+        "shortDescription": "See what works. Help your company learn.",
+        "longDescription": "Collect content-free workflow evidence across supported coding agents and return approved company playbooks to employees.",
+        "developerName": "Unfairly",
+        "category": "Productivity",
+        "capabilities": [
+          "Interactive"
+        ],
+        "websiteURL": "https://intelligence.unfairly.ai",
+        "defaultPrompt": [
+          "Show me the most relevant approved company playbooks for this work."
+        ]
+      }
+    }
+  }
+}

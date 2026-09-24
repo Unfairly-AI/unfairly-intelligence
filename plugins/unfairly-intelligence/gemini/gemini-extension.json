@@ -1,0 +1,12 @@
+{
+  "name": "ai-pace",
+  "version": "0.1.0",
+  "description": "Managed, content-safe AI usage telemetry and reusable team playbooks.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "unfairly": {
+      "command": "npx",
+      "args": ["-y", "unfairly@0.8.2", "mcp"]
+    }
+  }
+}
