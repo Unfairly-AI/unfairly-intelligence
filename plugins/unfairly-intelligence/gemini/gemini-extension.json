@@ -6,7 +6,7 @@
   "mcpServers": {
     "unfairly": {
       "command": "npx",
-      "args": ["-y", "unfairly@0.8.2", "mcp"]
+      "args": ["-y", "unfairly@0.8.3", "mcp"]
     }
   }
 }

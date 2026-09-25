@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "unfairly-intelligence",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "See what works with AI on your team. Content-free session metadata, joined to shipped work, with shared learnings everyone can reuse.",
   "author": {
     "name": "Unfairly",

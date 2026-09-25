@@ -2,15 +2,11 @@
 
 The Unfairly plugin is the portable workflow component for Unfairly Intelligence, backed by the existing `unfairly` CLI. Its root Agent Plugins manifest carries the shared skills and MCP definition. Codex/ChatGPT Work use the OpenAI extension, Claude Code uses the Claude compatibility manifest, Cursor uses the native Cursor overlay, and Gemini CLI loads the nested `gemini/` extension. All lifecycle hooks call the compatibility command `unfairly pace capture` and emit the same content-free event contract. Employee-facing commands use `unfairly intelligence`.
 
-The plugin intentionally contains only thin compatibility manifests. Identity, redaction, Git enrichment, durable local spooling, upload, and policy live in the shared CLI core.
+The plugin carries its own bundled runtime (`runtime/unfairly-intelligence.mjs`, generated from `cli/src/pace-runtime.ts` by `npm run bundle:plugin-runtime` in `cli/`), so installing the plugin is the whole install. Hooks call `scripts/capture.cjs`, which prefers the bundled runtime and falls back to a runtime placed by `npx unfairly` or a global `unfairly`. Identity, redaction, Git enrichment, durable local spooling, upload, and policy live in the shared CLI core.
 
-Employees install it through the existing one-command path:
+Employees install it from their AI client's plugin screen, using the public marketplace `Unfairly-AI/unfairly-intelligence` (built from this directory by `scripts/build-intelligence-marketplace.mjs`). An administrator sends them `https://intelligence.unfairly.ai/install?org=<org-id>`, which walks through each client and shows the Claude managed-settings snippet for pushing it to everyone. On the first session start the plugin prints a link; the employee approves the machine in the browser (choosing the organization if they belong to several), and the machine receives its own revocable collector credential. A background poller picks up the approval within a few seconds, so the same session connects, and the first sync uploads the last 90 days of sessions after fetching the approved-repository list. After that, session summaries upload at every session start and end.
 
-```bash
-npx unfairly@latest
-```
-
-The command places a version-pinned runtime and marketplace under `~/.unfairly`, activates every detected hook-capable client, and confirms enrollment with the Intelligence API. No global npm install or administrator permission is required. A newly installed AI client is picked up the next time the command runs. `unfairly intelligence install` is the explicit repair/reinstall command.
+The terminal path still works: `npx unfairly@latest setup --org <org-id>` installs and enrolls, and `unfairly intelligence backfill --days 90` uploads past sessions from the local transcripts.
 
 Before activation, inspect the exact contract with `unfairly intelligence policy`. Use `unfairly intelligence status` to see enabled clients, queue depth, policy/runtime/plugin versions, attestation expiry, and last upload. Collection can be stopped without losing installation identity with `unfairly intelligence pause` and restarted with `unfairly intelligence resume`. `unfairly intelligence uninstall` removes only tracked Unfairly-managed files and local Intelligence state.
 

@@ -4814,10 +4814,14 @@ var init_session_summary = __esm({
 // src/pace/enroll.ts
 var enroll_exports = {};
 __export(enroll_exports, {
+  acquireApprovalLock: () => acquireApprovalLock,
+  awaitApproval: () => awaitApproval,
   collectorAuthorization: () => collectorAuthorization,
   collectorCredentialPath: () => collectorCredentialPath,
   ensureEnrolled: () => ensureEnrolled,
+  pollPendingEnrollment: () => pollPendingEnrollment,
   readCollectorCredential: () => readCollectorCredential,
+  releaseApprovalLock: () => releaseApprovalLock,
   sessionStartOutput: () => sessionStartOutput
 });
 import fs7 from "node:fs/promises";
@@ -4844,17 +4848,8 @@ async function ensureEnrolled(input) {
   if (existing) return { status: "connected", orgId: existing.org_id };
   const call = input.fetchImpl ?? fetch;
   const now = input.now ?? /* @__PURE__ */ new Date();
-  const pending = await readJson(pendingPath(), PendingSchema);
-  if (pending && Date.parse(pending.expires_at) > now.getTime()) {
-    const response2 = await call(`${input.apiUrl}/api/ai-pace/enroll/poll`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_code: pending.device_code }) });
-    const body = await response2.json().catch(() => ({}));
-    if (body.status === "approved" && body.installation_id && body.secret && body.org_id) {
-      await writeJson(collectorCredentialPath(), CredentialSchema.parse({ installation_id: body.installation_id, secret: body.secret, org_id: body.org_id }));
-      await fs7.unlink(pendingPath()).catch(() => void 0);
-      return { status: "connected", orgId: body.org_id };
-    }
-    if (body.status === "pending") return { status: "waiting", link: pending.verification_uri, code: pending.user_code };
-  }
+  const polled = await pollPendingEnrollment({ apiUrl: input.apiUrl, fetchImpl: call, now });
+  if (polled.status === "connected" || polled.status === "waiting") return polled;
   const clients = input.clients.filter((client) => ["codex", "claude_code", "cursor", "gemini_cli"].includes(client));
   const response = await call(`${input.apiUrl}/api/ai-pace/enroll`, {
     method: "POST",
@@ -4865,6 +4860,54 @@ async function ensureEnrolled(input) {
   const started = await response.json();
   await writeJson(pendingPath(), { device_code: started.device_code, user_code: started.user_code, verification_uri: started.verification_uri, expires_at: new Date(now.getTime() + started.expires_in * 1e3).toISOString() });
   return { status: "waiting", link: started.verification_uri, code: started.user_code };
+}
+async function pollPendingEnrollment(input) {
+  const existing = await readCollectorCredential();
+  if (existing) return { status: "connected", orgId: existing.org_id };
+  const pending = await readJson(pendingPath(), PendingSchema);
+  if (!pending || Date.parse(pending.expires_at) <= (input.now ?? /* @__PURE__ */ new Date()).getTime()) return { status: "none" };
+  const call = input.fetchImpl ?? fetch;
+  const response = await call(`${input.apiUrl}/api/ai-pace/enroll/poll`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_code: pending.device_code }) });
+  const body = await response.json().catch(() => ({}));
+  if (body.status === "approved" && body.installation_id && body.secret && body.org_id) {
+    await writeJson(collectorCredentialPath(), CredentialSchema.parse({ installation_id: body.installation_id, secret: body.secret, org_id: body.org_id }));
+    await fs7.unlink(pendingPath()).catch(() => void 0);
+    return { status: "connected", orgId: body.org_id };
+  }
+  if (body.status === "pending") return { status: "waiting", link: pending.verification_uri, code: pending.user_code };
+  return { status: "none" };
+}
+async function awaitApproval(input) {
+  const clock = input.clock ?? Date.now;
+  const sleep = input.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const deadline = clock() + (input.deadlineMs ?? 16 * 6e4);
+  while (clock() < deadline) {
+    const state = await pollPendingEnrollment({ apiUrl: input.apiUrl, fetchImpl: input.fetchImpl, now: new Date(clock()) }).catch(() => ({ status: "waiting" }));
+    if (state.status === "connected") return true;
+    if (state.status === "none") return false;
+    await sleep(input.intervalMs ?? 5e3);
+  }
+  return false;
+}
+async function acquireApprovalLock(now = Date.now()) {
+  const file = approvalLockPath();
+  try {
+    const lock = JSON.parse(await fs7.readFile(file, "utf8"));
+    const fresh = typeof lock.started_at === "number" && now - lock.started_at < 17 * 6e4;
+    let alive = false;
+    try {
+      if (typeof lock.pid === "number") {
+        process.kill(lock.pid, 0);
+        alive = true;
+      }
+    } catch {
+      alive = false;
+    }
+    if (fresh && alive) return false;
+  } catch {
+  }
+  await writeJson(file, { pid: process.pid, started_at: now });
+  return true;
 }
 function sessionStartOutput(state, hookEventName = "SessionStart") {
   if (state.status !== "waiting") return "";
@@ -4877,7 +4920,7 @@ function sessionStartOutput(state, hookEventName = "SessionStart") {
     }
   });
 }
-var CredentialSchema, PendingSchema, dir, collectorCredentialPath, pendingPath, readCollectorCredential;
+var CredentialSchema, PendingSchema, dir, collectorCredentialPath, pendingPath, readCollectorCredential, approvalLockPath, releaseApprovalLock;
 var init_enroll = __esm({
   "src/pace/enroll.ts"() {
     "use strict";
@@ -4888,10 +4931,13 @@ var init_enroll = __esm({
     collectorCredentialPath = () => process.env.UNFAIRLY_PACE_COLLECTOR ?? path7.join(dir(), "collector.json");
     pendingPath = () => process.env.UNFAIRLY_PACE_ENROLLMENT ?? path7.join(dir(), "enrollment.json");
     readCollectorCredential = () => readJson(collectorCredentialPath(), CredentialSchema);
+    approvalLockPath = () => path7.join(path7.dirname(pendingPath()), "approval-wait.json");
+    releaseApprovalLock = () => fs7.unlink(approvalLockPath()).catch(() => void 0);
   }
 });
 
 // src/pace-runtime.ts
+import { spawn } from "node:child_process";
 import os8 from "node:os";
 
 // src/sync/credentials.ts
@@ -5268,6 +5314,7 @@ var DeviceStateSchema = external_exports.object({
   paused: external_exports.boolean().optional(),
   last_upload_at: external_exports.string().datetime().optional(),
   last_session_sweep_at: external_exports.string().datetime().optional(),
+  history_backfilled_at: external_exports.string().datetime().optional(),
   repository_policy_refreshed_at: external_exports.string().datetime().optional(),
   collection_policy_version: external_exports.literal("metadata-v3").optional(),
   managed_files: external_exports.array(external_exports.string().min(1)).max(20).optional(),
@@ -5320,15 +5367,21 @@ async function runPaceCapture(source, hookEvent) {
   });
   await appendPaceEvent(event);
   const boundary = event.event_type === "session.started" || event.event_type === "session.ended" || event.event_type === "workflow.stopped";
-  if (boundary) {
-    await runPaceSweep().catch(() => void 0);
-  }
-  if (process.env.UNFAIRLY_PACE_NO_FLUSH !== "1" && boundary) {
-    await runPaceFlush().catch(() => void 0);
-  }
+  if (boundary) await runPaceSync({ flush: process.env.UNFAIRLY_PACE_NO_FLUSH !== "1" }).catch(() => void 0);
 }
 var SWEEP_OVERLAP_MS = 15 * 6e4;
 var FIRST_SWEEP_LOOKBACK_MS = 2 * 864e5;
+var HISTORY_BACKFILL_DAYS = 90;
+async function runPaceSync(options = {}) {
+  if (!await paceAuthorization()) return null;
+  const device = await readOrCreatePaceDevice();
+  const firstSync = !device.history_backfilled_at;
+  await refreshRepositoryPolicy({ force: firstSync }).catch(() => null);
+  const sweep = firstSync ? await runPaceSweep({ sinceMs: Date.now() - HISTORY_BACKFILL_DAYS * 864e5, collectedVia: "backfill" }) : await runPaceSweep();
+  if (firstSync) await writePaceDevice({ ...await readOrCreatePaceDevice(), history_backfilled_at: (/* @__PURE__ */ new Date()).toISOString() });
+  if (options.flush !== false) await runPaceFlush().catch(() => void 0);
+  return { summarized: sweep.summarized, backfilled: firstSync };
+}
 async function runPaceSweep(options = {}) {
   const { sweepLocalSessions: sweepLocalSessions2 } = await Promise.resolve().then(() => (init_session_summary(), session_summary_exports));
   const device = await readOrCreatePaceDevice();
@@ -5393,13 +5446,13 @@ async function runPaceFlush() {
   const sessions = await uploadSessionSummaries(authorization);
   const events = await readPaceEvents();
   if (!events.length) return { sent: 0, remaining: 0, sessions_sent: sessions.sent };
-  const apiUrl = (process.env.UNFAIRLY_API_URL ?? DEFAULT_API).replace(/\/$/, "");
+  const apiUrl2 = (process.env.UNFAIRLY_API_URL ?? DEFAULT_API).replace(/\/$/, "");
   const device = await readOrCreatePaceDevice();
   const attributedEvents = events.map((event) => ({
     ...event,
     installation_id: event.installation_id ?? device.installation_id
   }));
-  const response = await fetch(`${apiUrl}/api/ai-pace/events`, {
+  const response = await fetch(`${apiUrl2}/api/ai-pace/events`, {
     method: "POST",
     headers: {
       Authorization: authorization,
@@ -5418,6 +5471,7 @@ async function runPaceFlush() {
 // src/pace-runtime.ts
 init_enroll();
 var DEFAULT_API2 = "https://app.unfairly.ai";
+var apiUrl = () => (process.env.UNFAIRLY_API_URL ?? DEFAULT_API2).replace(/\/$/, "");
 async function connect(source, event) {
   const device = await readOrCreatePaceDevice();
   if (device.paused) return;
@@ -5425,7 +5479,7 @@ async function connect(source, event) {
   const arch = os8.arch();
   if (platform !== "darwin" && platform !== "linux" && platform !== "win32" || arch !== "x64" && arch !== "arm64") return;
   const state = await ensureEnrolled({
-    apiUrl: (process.env.UNFAIRLY_API_URL ?? DEFAULT_API2).replace(/\/$/, ""),
+    apiUrl: apiUrl(),
     installationId: device.installation_id,
     platform,
     arch,
@@ -5436,10 +5490,24 @@ async function connect(source, event) {
   const output = sessionStartOutput(state, event === "sessionStart" ? "sessionStart" : "SessionStart");
   if (output) process.stdout.write(`${output}
 `);
+  if (state.status === "waiting") {
+    const child = spawn(process.execPath, [process.argv[1], "await-approval"], { detached: true, stdio: "ignore", env: process.env });
+    child.on("error", () => void 0);
+    child.unref();
+  }
+}
+async function awaitApprovalAndSync() {
+  if (!await acquireApprovalLock()) return;
+  try {
+    if (await awaitApproval({ apiUrl: apiUrl() })) await runPaceSync();
+  } finally {
+    await releaseApprovalLock();
+  }
 }
 async function main() {
   const [command, source = "unknown", event = "Unknown"] = process.argv.slice(2);
   if (command === "connect") await connect(source, event);
+  else if (command === "await-approval") await awaitApprovalAndSync();
   else if (command === "capture") await runPaceCapture(source, event);
 }
 main().catch(() => void 0).finally(() => process.exit(0));
